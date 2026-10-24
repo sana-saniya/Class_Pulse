@@ -3,9 +3,10 @@ import { GraduationCap, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DEMO_ACCOUNTS = [
-  { role: 'Faculty',  email: 'faculty@classpulse.edu', password: 'Faculty@123', color: 'indigo' },
-  { role: 'HOD',      email: 'hod@classpulse.edu',     password: 'HOD@123',     color: 'violet' },
-  { role: 'Student',  email: 'student@classpulse.edu', password: 'Student@123', color: 'emerald' },
+  { role: 'Faculty', email: 'faculty@classpulse.edu', password: 'Faculty@123', color: 'indigo' },
+  { role: 'HOD',     email: 'hod@classpulse.edu',     password: 'HOD@123',     color: 'violet' },
+  { role: 'Student', email: 'student@classpulse.edu', password: 'Student@123', color: 'emerald' },
+  { role: 'Parent',  email: 'parent@classpulse.edu',  password: 'Parent@123',  color: 'amber' },
 ];
 
 export default function LoginPage() {
@@ -49,13 +50,13 @@ export default function LoginPage() {
             <GraduationCap className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">ClassPulse</h1>
-          <p className="text-gray-500 text-sm mt-1">Early Academic Support Dashboard</p>
-          <p className="text-gray-600 text-xs mt-0.5">JNTUA · NEP 2020</p>
+          <p className="text-gray-400 text-sm mt-1">Early Academic Support Dashboard</p>
+          <p className="text-gray-500 text-xs mt-0.5">JNTUA · NEP 2020 Continuous Evaluation</p>
         </div>
 
         {/* Card */}
         <div className="bg-gray-900 border border-white/5 rounded-2xl p-6 shadow-2xl">
-          <h2 className="text-sm font-semibold text-white mb-5">Sign in to your account</h2>
+          <h2 className="text-sm font-semibold text-white mb-5">Sign in to your portal</h2>
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             {/* Email */}
@@ -115,8 +116,8 @@ export default function LoginPage() {
 
         {/* Demo accounts */}
         <div className="mt-5">
-          <p className="text-xs text-gray-600 text-center mb-3">Demo accounts — click to fill</p>
-          <div className="grid grid-cols-3 gap-2">
+          <p className="text-xs text-gray-500 text-center mb-3">One-Click Demo Accounts</p>
+          <div className="grid grid-cols-2 gap-2">
             {DEMO_ACCOUNTS.map((acc) => (
               <button
                 key={acc.role}
@@ -124,7 +125,7 @@ export default function LoginPage() {
                 className={`p-3 rounded-xl bg-gray-900 border border-white/5 hover:border-${acc.color}-500/30 hover:bg-${acc.color}-500/5 transition-all text-left`}
               >
                 <p className={`text-xs font-semibold text-${acc.color}-400`}>{acc.role}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5 truncate">{acc.email}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5 truncate">{acc.email}</p>
               </button>
             ))}
           </div>
