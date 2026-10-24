@@ -4,9 +4,10 @@ import { useApp } from '../context/AppContext';
 import { api } from '../api';
 
 const ROLE_BADGE: Record<string, { label: string; emoji: string; color: string }> = {
-  faculty: { label: 'Faculty',  emoji: '👨‍🏫', color: 'indigo' },
-  hod:     { label: 'HOD',      emoji: '🏛️',  color: 'violet' },
-  student: { label: 'Student',  emoji: '🎓',  color: 'emerald' },
+  faculty: { label: 'Faculty', emoji: '👨‍🏫', color: 'indigo' },
+  hod:     { label: 'HOD',     emoji: '🏛️',  color: 'violet' },
+  student: { label: 'Student', emoji: '🎓',  color: 'emerald' },
+  parent:  { label: 'Parent',  emoji: '👨‍👩‍👧', color: 'amber' },
 };
 
 export default function Navbar() {
