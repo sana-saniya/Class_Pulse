@@ -1,36 +1,47 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const Threshold = require('../models/Threshold');
 
 // GET /api/thresholds
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const t = db.get('SELECT * FROM thresholds WHERE id = 1');
+    let t = await Threshold.findOne();
+    if (!t) {
+      t = await Threshold.create({ attendanceMin: 75, scoreDropMax: 15, backlogsMax: 2 });
+    }
     res.json({
-      attendanceMin: t.attendance_min,
-      scoreDropMax: t.score_drop_max,
-      backlogsMax: t.backlogs_max,
+      attendanceMin: t.attendanceMin,
+      scoreDropMax: t.scoreDropMax,
+      backlogsMax: t.backlogsMax,
     });
   } catch (err) {
+    console.error('Fetch thresholds error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT /api/thresholds
-router.put('/', (req, res) => {
+router.put('/', async (req, res) => {
   try {
     const { attendanceMin, scoreDropMax, backlogsMax } = req.body;
-    if (attendanceMin !== undefined) db.run('UPDATE thresholds SET attendance_min = ? WHERE id = 1', [attendanceMin]);
-    if (scoreDropMax !== undefined) db.run('UPDATE thresholds SET score_drop_max = ? WHERE id = 1', [scoreDropMax]);
-    if (backlogsMax !== undefined) db.run('UPDATE thresholds SET backlogs_max = ? WHERE id = 1', [backlogsMax]);
+    let t = await Threshold.findOne();
+    if (!t) {
+      t = new Threshold({ attendanceMin: 75, scoreDropMax: 15, backlogsMax: 2 });
+    }
 
-    const updated = db.get('SELECT * FROM thresholds WHERE id = 1');
+    if (attendanceMin !== undefined) t.attendanceMin = attendanceMin;
+    if (scoreDropMax !== undefined) t.scoreDropMax = scoreDropMax;
+    if (backlogsMax !== undefined) t.backlogsMax = backlogsMax;
+
+    await t.save();
+
     res.json({
-      attendanceMin: updated.attendance_min,
-      scoreDropMax: updated.score_drop_max,
-      backlogsMax: updated.backlogs_max,
+      attendanceMin: t.attendanceMin,
+      scoreDropMax: t.scoreDropMax,
+      backlogsMax: t.backlogsMax,
     });
   } catch (err) {
+    console.error('Update thresholds error:', err);
     res.status(500).json({ error: err.message });
   }
 });
