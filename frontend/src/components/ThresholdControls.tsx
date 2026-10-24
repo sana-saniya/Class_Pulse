@@ -9,6 +9,7 @@ function Slider({
   onChange: (v: number) => void;
 }) {
   const pct = ((value - min) / (max - min)) * 100;
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
@@ -17,19 +18,23 @@ function Slider({
           {value}{unit}
         </span>
       </div>
-      <div className="relative h-2 bg-gray-800 rounded-full overflow-hidden">
-        <div
-          className="absolute h-full bg-gradient-to-r from-brand-600 to-indigo-400 rounded-full transition-all"
-          style={{ width: `${pct}%` }}
+      {/* Wrapper gives the invisible range input a proper click area */}
+      <div className="relative h-5 flex items-center">
+        {/* Visible track */}
+        <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden pointer-events-none">
+          <div
+            className="h-full bg-gradient-to-r from-brand-600 to-indigo-400 rounded-full transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {/* Invisible range input sits on top, covers the full 20px hit area */}
+        <input
+          type="range"
+          min={min} max={max} step={step} value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 w-full opacity-0 cursor-pointer"
         />
       </div>
-      <input
-        type="range"
-        min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-2 opacity-0 absolute cursor-pointer"
-        style={{ marginTop: '-1.25rem' }}
-      />
     </div>
   );
 }

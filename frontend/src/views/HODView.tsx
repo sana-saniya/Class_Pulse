@@ -31,7 +31,7 @@ export default function HODView() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Students', value: globalTotal, icon: Users, sub: 'Across all departments' },
-          { label: 'High Risk', value: globalHigh, icon: TrendingDown, sub: `${((globalHigh / globalTotal) * 100).toFixed(0)}% of cohort` },
+          { label: 'High Risk', value: globalHigh, icon: TrendingDown, sub: globalTotal > 0 ? `${((globalHigh / globalTotal) * 100).toFixed(0)}% of cohort` : '—' },
           { label: 'Departments', value: DEPTS.length, icon: Building2, sub: 'CSE · ECE · EEE · MECH' },
           { label: 'Interventions Logged', value: interventionTotal, icon: Activity, sub: 'Total actions taken' },
         ].map((k) => (
