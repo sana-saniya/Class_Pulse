@@ -87,8 +87,15 @@ router.post('/generate', (req, res) => {
   }
 });
 
-// GET /api/students/export
+// GET /api/students/export  (also accepts ?token= for direct download links)
 router.get('/export', (req, res) => {
+  // Allow token via query string for file downloads
+  if (!req.user && req.query.token) {
+    try {
+      const { verifyToken } = require('../middleware/auth');
+      req.user = verifyToken(req.query.token);
+    } catch { /* fall through to normal 401 */ }
+  }
   try {
     const students = db.all('SELECT * FROM students ORDER BY roll_no');
     const thresholds = db.get('SELECT * FROM thresholds WHERE id = 1');
