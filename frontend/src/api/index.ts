@@ -1,9 +1,29 @@
 import type { Student, RiskThresholds, Intervention } from '../types';
 
 const BASE = '/api';
+const TOKEN_KEY = 'classpulse_token';
 
-async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+async function fetchJSON<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> ?? {}),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(url, { ...options, headers });
+
+  // Token expired / unauthorized — clear session
+  if (res.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    window.location.href = '/login';
+    throw new Error('Session expired');
+  }
+
   if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
   return res.json() as Promise<T>;
 }
@@ -13,13 +33,13 @@ export const api = {
   getStudents: () => fetchJSON<Student[]>(`${BASE}/students`),
 
   generateCohort: () =>
-    fetchJSON<{ message: string; count: number }>(`${BASE}/students/generate`, {
-      method: 'POST',
-    }),
+    fetchJSON<{ message: string; count: number }>(`${BASE}/students/generate`, { method: 'POST' }),
 
   exportCSV: () => {
+    const token = getToken();
     const link = document.createElement('a');
-    link.href = `${BASE}/students/export`;
+    // Pass token as query param for file downloads
+    link.href = `${BASE}/students/export?token=${token ?? ''}`;
     link.download = 'classpulse-report.csv';
     link.click();
   },
@@ -30,7 +50,6 @@ export const api = {
   updateThresholds: (thresholds: Partial<RiskThresholds>) =>
     fetchJSON<RiskThresholds>(`${BASE}/thresholds`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(thresholds),
     }),
 
@@ -46,7 +65,6 @@ export const api = {
   }) =>
     fetchJSON<Intervention>(`${BASE}/interventions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
 };
