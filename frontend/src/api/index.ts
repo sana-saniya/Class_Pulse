@@ -1,4 +1,4 @@
-import type { Student, RiskThresholds, Intervention } from '../types';
+import type { Student, RiskThresholds, Intervention, FacultyUser } from '../types';
 
 const BASE = '/api';
 const TOKEN_KEY = 'classpulse_token';
@@ -20,17 +20,37 @@ async function fetchJSON<T>(url: string, options: RequestInit = {}): Promise<T> 
   // Token expired / unauthorized — clear session
   if (res.status === 401) {
     localStorage.removeItem(TOKEN_KEY);
-    window.location.href = '/login';
+    window.location.reload();
     throw new Error('Session expired');
   }
 
-  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    let msg = `API error ${res.status}`;
+    try {
+      const errObj = await res.json();
+      msg = errObj.error || msg;
+    } catch {
+      msg = await res.text() || msg;
+    }
+    throw new Error(msg);
+  }
   return res.json() as Promise<T>;
 }
 
 export const api = {
   // Students
   getStudents: () => fetchJSON<Student[]>(`${BASE}/students`),
+
+  addStudent: (data: Partial<Student> & { mid1?: number; mid2?: number; assignmentsSubmitted?: number; totalAssignments?: number }) =>
+    fetchJSON<Student>(`${BASE}/students`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteStudent: (id: string) =>
+    fetchJSON<{ message: string; id: string }>(`${BASE}/students/${id}`, {
+      method: 'DELETE',
+    }),
 
   generateCohort: () =>
     fetchJSON<{ message: string; count: number }>(`${BASE}/students/generate`, { method: 'POST' }),
@@ -72,5 +92,19 @@ export const api = {
     fetchJSON<Intervention>(`${BASE}/interventions`, {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  // Faculty Management for HOD
+  getFacultyList: () => fetchJSON<FacultyUser[]>(`${BASE}/auth/faculty`),
+
+  addFaculty: (data: { name: string; email: string; password: string; department?: string; phone?: string }) =>
+    fetchJSON<FacultyUser>(`${BASE}/auth/faculty`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteFaculty: (id: string) =>
+    fetchJSON<{ message: string; id: string }>(`${BASE}/auth/faculty/${id}`, {
+      method: 'DELETE',
     }),
 };
