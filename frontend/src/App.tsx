@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import FacultyView from './views/FacultyView';
 import HODView from './views/HODView';
 import StudentView from './views/StudentView';
+import ParentView from './views/ParentView';
 import { Loader2 } from 'lucide-react';
 
 function Spinner({ text }: { text: string }) {
@@ -33,6 +34,7 @@ function Dashboard() {
         {user?.role === 'faculty'  && <FacultyView />}
         {user?.role === 'hod'      && <HODView />}
         {user?.role === 'student'  && <StudentView />}
+        {user?.role === 'parent'   && <ParentView />}
         {!user?.role && (
           <div className="text-center text-gray-500 py-20">
             Unknown role. Please contact your administrator.
