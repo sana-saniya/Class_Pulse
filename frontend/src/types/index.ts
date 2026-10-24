@@ -1,4 +1,4 @@
-export type Role = 'faculty' | 'hod' | 'student';
+export type Role = 'faculty' | 'hod' | 'student' | 'parent';
 export type RiskLevel = 'High Risk' | 'Medium Risk' | 'On Track';
 
 export interface AssessmentScores {
@@ -26,7 +26,19 @@ export interface Student {
   attendancePct: number;
   scores: AssessmentScores;
   backlogs: number;
+  parentEmail?: string | null;
+  parentPhone?: string | null;
   interventions: Intervention[];
+}
+
+export interface FacultyUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: 'faculty';
+  department: string;
+  phone?: string | null;
+  createdAt?: string;
 }
 
 export interface RiskThresholds {
