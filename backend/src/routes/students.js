@@ -1,64 +1,134 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const Student = require('../models/Student');
+const Threshold = require('../models/Threshold');
 const { v4: uuidv4 } = require('uuid');
 
+// Helper to format student document for API output
+function formatStudent(s) {
+  return {
+    id: s._id.toString(),
+    rollNo: s.rollNo,
+    name: s.name,
+    department: s.department,
+    section: s.section,
+    attendancePct: s.attendancePct,
+    scores: {
+      mid1: s.scores?.mid1 ?? 0,
+      mid2: s.scores?.mid2 ?? 0,
+      assignmentsSubmitted: s.scores?.assignmentsSubmitted ?? 0,
+      totalAssignments: s.scores?.totalAssignments ?? 5,
+    },
+    backlogs: s.backlogs ?? 0,
+    parentEmail: s.parentEmail || null,
+    parentPhone: s.parentPhone || null,
+    interventions: (s.interventions || []).map((i) => ({
+      id: i.id,
+      date: i.date,
+      type: i.type,
+      notes: i.notes,
+      status: i.status,
+      actionTakenBy: i.actionTakenBy,
+    })),
+  };
+}
+
 // GET /api/students
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const students = db.all('SELECT * FROM students ORDER BY roll_no');
-    const interventions = db.all('SELECT * FROM interventions ORDER BY created_at DESC');
-
-    const result = students.map((s) => ({
-      id: s.id,
-      rollNo: s.roll_no,
-      name: s.name,
-      department: s.department,
-      section: s.section,
-      attendancePct: s.attendance_pct,
-      scores: {
-        mid1: s.mid1,
-        mid2: s.mid2,
-        assignmentsSubmitted: s.assignments_submitted,
-        totalAssignments: s.total_assignments,
-      },
-      backlogs: s.backlogs,
-      interventions: interventions
-        .filter((i) => i.student_id === s.id)
-        .map((i) => ({
-          id: i.id,
-          date: i.date,
-          type: i.type,
-          notes: i.notes,
-          status: i.status,
-          actionTakenBy: i.action_taken_by,
-        })),
-    }));
-
-    res.json(result);
+    const students = await Student.find().sort({ rollNo: 1 });
+    res.json(students.map(formatStudent));
   } catch (err) {
-    console.error(err);
+    console.error('Fetch students error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/students - Add a new student (Faculty / HOD)
+router.post('/', async (req, res) => {
+  try {
+    const {
+      rollNo,
+      name,
+      department,
+      section,
+      attendancePct,
+      mid1,
+      mid2,
+      assignmentsSubmitted,
+      totalAssignments,
+      backlogs,
+      parentEmail,
+      parentPhone,
+    } = req.body;
+
+    if (!rollNo || !name || !department || !section) {
+      return res.status(400).json({ error: 'Roll number, Name, Department, and Section are required' });
+    }
+
+    const cleanRoll = rollNo.trim().toUpperCase();
+    const existing = await Student.findOne({ rollNo: cleanRoll });
+    if (existing) {
+      return res.status(409).json({ error: `Student with roll number ${cleanRoll} already exists` });
+    }
+
+    const student = await Student.create({
+      rollNo: cleanRoll,
+      name: name.trim(),
+      department: department.trim(),
+      section: section.trim().toUpperCase(),
+      attendancePct: Number(attendancePct) || 0,
+      scores: {
+        mid1: Number(mid1) || 0,
+        mid2: Number(mid2) || 0,
+        assignmentsSubmitted: Number(assignmentsSubmitted) || 0,
+        totalAssignments: Number(totalAssignments) || 5,
+      },
+      backlogs: Number(backlogs) || 0,
+      parentEmail: parentEmail?.trim()?.toLowerCase() || null,
+      parentPhone: parentPhone?.trim() || null,
+      interventions: [],
+    });
+
+    res.status(201).json(formatStudent(student));
+  } catch (err) {
+    console.error('Add student error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/students/:id - Delete a student
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Student.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    res.json({ message: 'Student removed successfully', id });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /api/students/generate
-router.post('/generate', (req, res) => {
+router.post('/generate', async (req, res) => {
   try {
     const NAMES = [
       'Akshay Nair', 'Bindu Valli', 'Chetan Reddy', 'Deepa Krishnan', 'Eswari Devi',
+      'Faizan Ahmed', 'Gita Raman', 'Hitesh Chandra', 'Indira Varma', 'Jagan Mohan'
     ];
     const DEPTS = ['CSE', 'ECE', 'EEE', 'MECH'];
     const SECTIONS = ['A', 'B'];
 
-    const lastRow = db.get("SELECT roll_no FROM students ORDER BY roll_no DESC LIMIT 1");
+    const lastStudent = await Student.findOne().sort({ rollNo: -1 });
     let startNum = 516;
-    if (lastRow) {
-      const last = parseInt(lastRow.roll_no.slice(-4));
-      startNum = last + 1;
+    if (lastStudent && lastStudent.rollNo) {
+      const parsed = parseInt(lastStudent.rollNo.slice(-4));
+      if (!isNaN(parsed)) startNum = parsed + 1;
     }
 
-    let count = 0;
+    const newDocs = [];
     for (let i = 0; i < 5; i++) {
       const rollNum = String(startNum + i).padStart(4, '0');
       const roll_no = `22G1A${rollNum}`;
@@ -68,43 +138,56 @@ router.post('/generate', (req, res) => {
       const backlogs = Math.floor(Math.random() * 5);
       const assignments_submitted = Math.floor(Math.random() * 6);
 
-      db.run(
-        `INSERT OR IGNORE INTO students (id, roll_no, name, department, section, attendance_pct, mid1, mid2, assignments_submitted, total_assignments, backlogs)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 5, ?)`,
-        [uuidv4(), roll_no,
-        NAMES[i % NAMES.length],
-        DEPTS[Math.floor(Math.random() * DEPTS.length)],
-        SECTIONS[Math.floor(Math.random() * SECTIONS.length)],
-        attendance_pct, mid1, mid2, assignments_submitted, backlogs],
-      );
-      count++;
+      newDocs.push({
+        rollNo: roll_no,
+        name: NAMES[i % NAMES.length],
+        department: DEPTS[Math.floor(Math.random() * DEPTS.length)],
+        section: SECTIONS[Math.floor(Math.random() * SECTIONS.length)],
+        attendancePct: attendance_pct,
+        scores: {
+          mid1,
+          mid2,
+          assignmentsSubmitted: assignments_submitted,
+          totalAssignments: 5,
+        },
+        backlogs,
+        parentEmail: `parent.${roll_no.toLowerCase()}@classpulse.edu`,
+        parentPhone: '+91 98765 00000',
+        interventions: [],
+      });
     }
 
-    res.json({ message: `Generated ${count} new students`, count });
+    await Student.insertMany(newDocs);
+    res.json({ message: `Generated ${newDocs.length} new students`, count: newDocs.length });
   } catch (err) {
-    console.error(err);
+    console.error('Generate cohort error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // GET /api/students/export
-router.get('/export', (req, res) => {
+router.get('/export', async (req, res) => {
   try {
-    const students = db.all('SELECT * FROM students ORDER BY roll_no');
-    const thresholds = db.get('SELECT * FROM thresholds WHERE id = 1');
+    const students = await Student.find().sort({ rollNo: 1 });
+    let threshold = await Threshold.findOne();
+    if (!threshold) {
+      threshold = { attendanceMin: 75, scoreDropMax: 15, backlogsMax: 2 };
+    }
 
-    const header = 'Roll No,Name,Department,Section,Attendance %,Mid-1,Mid-2,Assignments Submitted,Backlogs,Risk Level\n';
+    const header = 'Roll No,Name,Department,Section,Attendance %,Mid-1,Mid-2,Assignments Submitted,Backlogs,Risk Level,Parent Email,Parent Phone\n';
     const rows = students.map((s) => {
-      const scoreDrop = s.mid1 > 0 ? ((s.mid1 - s.mid2) / s.mid1) * 100 : 0;
+      const mid1 = s.scores?.mid1 ?? 0;
+      const mid2 = s.scores?.mid2 ?? 0;
+      const scoreDrop = mid1 > 0 ? ((mid1 - mid2) / mid1) * 100 : 0;
       let risk = 'On Track';
       if (
-        s.attendance_pct < thresholds.attendance_min ||
-        scoreDrop > thresholds.score_drop_max ||
-        s.backlogs > thresholds.backlogs_max
+        s.attendancePct < threshold.attendanceMin ||
+        scoreDrop > threshold.scoreDropMax ||
+        s.backlogs > threshold.backlogsMax
       ) {
-        risk = (s.attendance_pct < 65 || s.backlogs > 3) ? 'High Risk' : 'Medium Risk';
+        risk = (s.attendancePct < 65 || s.backlogs > 3) ? 'High Risk' : 'Medium Risk';
       }
-      return `${s.roll_no},${s.name},${s.department},${s.section},${s.attendance_pct},${s.mid1},${s.mid2},${s.assignments_submitted},${s.backlogs},${risk}`;
+      return `${s.rollNo},"${s.name}",${s.department},${s.section},${s.attendancePct},${mid1},${mid2},${s.scores?.assignmentsSubmitted ?? 0},${s.backlogs},${risk},${s.parentEmail || ''},${s.parentPhone || ''}`;
     });
 
     const csv = header + rows.join('\n');
@@ -112,7 +195,7 @@ router.get('/export', (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=classpulse-report.csv');
     res.send(csv);
   } catch (err) {
-    console.error(err);
+    console.error('Export error:', err);
     res.status(500).json({ error: err.message });
   }
 });
