@@ -4,7 +4,6 @@ const fs = require('fs');
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'classpulse.db');
 
-// Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -12,7 +11,6 @@ if (!fs.existsSync(dataDir)) {
 
 const db = new Database(DB_PATH);
 
-// Create tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS students (
     id TEXT PRIMARY KEY,
@@ -45,6 +43,17 @@ db.exec(`
     attendance_min REAL NOT NULL DEFAULT 75,
     score_drop_max REAL NOT NULL DEFAULT 15,
     backlogs_max INTEGER NOT NULL DEFAULT 2
+  );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('faculty','hod','student')),
+    roll_no TEXT,
+    department TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
   );
 `);
 
