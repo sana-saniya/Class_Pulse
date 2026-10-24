@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { MessageSquarePlus, Users, AlertTriangle, CheckCircle2, TrendingDown } from 'lucide-react';
+import { MessageSquarePlus, Users, AlertTriangle, CheckCircle2, TrendingDown, UserPlus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { assessRisk, getRiskColor } from '../utils/riskEngine';
 import StudentTable from '../components/StudentTable';
 import ThresholdControls from '../components/ThresholdControls';
 import XAICard from '../components/XAICard';
 import InterventionModal from '../components/InterventionModal';
+import AddStudentModal from '../components/AddStudentModal';
 import type { Student } from '../types';
 
 export default function FacultyView() {
   const { students, thresholds, selectedStudentId, setSelectedStudentId } = useApp();
   const [modalStudent, setModalStudent] = useState<Student | null>(null);
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
 
   const selectedStudent = students.find((s) => s.id === selectedStudentId) ?? students[0];
 
@@ -23,6 +25,21 @@ export default function FacultyView() {
 
   return (
     <div className="space-y-6">
+      {/* Top action bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-900 border border-white/5 rounded-2xl p-4">
+        <div>
+          <h2 className="text-base font-bold text-white">Faculty Academic Dashboard</h2>
+          <p className="text-xs text-gray-400">Add, track and log interventions for students with direct cloud sync</p>
+        </div>
+        <button
+          onClick={() => setIsAddStudentOpen(true)}
+          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg shadow-brand-600/20 transition-all"
+        >
+          <UserPlus className="w-4 h-4" />
+          Add Student Record
+        </button>
+      </div>
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -45,7 +62,7 @@ export default function FacultyView() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-5">
         <div className="space-y-5">
-          <StudentTable onSelect={(s) => setSelectedStudentId(s.id)} />
+          <StudentTable onSelect={(s) => setSelectedStudentId(s.id)} allowDelete={true} />
         </div>
 
         <div className="space-y-4">
@@ -87,6 +104,15 @@ export default function FacultyView() {
                   ))}
                 </div>
 
+                {/* Parent Contact Details */}
+                <div className="mt-3 p-2.5 bg-gray-800/80 rounded-xl text-xs space-y-1">
+                  <p className="text-gray-400 font-medium text-[11px]">Parent / Guardian</p>
+                  <p className="text-gray-200">{selectedStudent.parentEmail || 'No parent email linked'}</p>
+                  {selectedStudent.parentPhone && (
+                    <p className="text-gray-400 text-[10px]">{selectedStudent.parentPhone}</p>
+                  )}
+                </div>
+
                 <button
                   onClick={() => setModalStudent(selectedStudent)}
                   className="mt-3 w-full py-2 bg-brand-600/20 hover:bg-brand-600/30 border border-brand-500/30 text-brand-400 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
@@ -124,6 +150,10 @@ export default function FacultyView() {
           )}
         </div>
       </div>
+
+      {isAddStudentOpen && (
+        <AddStudentModal isOpen={isAddStudentOpen} onClose={() => setIsAddStudentOpen(false)} />
+      )}
 
       {modalStudent && (
         <InterventionModal student={modalStudent} onClose={() => setModalStudent(null)} />
