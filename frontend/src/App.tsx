@@ -1,42 +1,57 @@
+import { useAuth } from './context/AuthContext';
 import { useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
+import LoginPage from './pages/LoginPage';
 import FacultyView from './views/FacultyView';
 import HODView from './views/HODView';
 import StudentView from './views/StudentView';
+import { Loader2 } from 'lucide-react';
 
-function LoadingScreen() {
+function Spinner({ text }: { text: string }) {
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
       <div className="text-center">
-        <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-          </svg>
+        <div className="w-10 h-10 rounded-xl bg-brand-600/20 border border-brand-500/30 flex items-center justify-center mx-auto mb-4">
+          <Loader2 className="w-5 h-5 text-brand-400 animate-spin" />
         </div>
-        <p className="text-white font-semibold">ClassPulse</p>
-        <p className="text-gray-500 text-sm mt-1">Loading dashboard…</p>
+        <p className="text-gray-500 text-sm">{text}</p>
       </div>
     </div>
   );
 }
 
-function AppContent() {
-  const { role, isLoading } = useApp();
-  if (isLoading) return <LoadingScreen />;
+function Dashboard() {
+  const { user } = useAuth();
+  const { isLoading } = useApp();
+
+  if (isLoading) return <Spinner text="Loading dashboard…" />;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <Navbar />
       <main className="max-w-screen-xl mx-auto px-4 py-6">
-        {role === 'faculty' && <FacultyView />}
-        {role === 'hod' && <HODView />}
-        {role === 'student' && <StudentView />}
+        {user?.role === 'faculty'  && <FacultyView />}
+        {user?.role === 'hod'      && <HODView />}
+        {user?.role === 'student'  && <StudentView />}
+        {!user?.role && (
+          <div className="text-center text-gray-500 py-20">
+            Unknown role. Please contact your administrator.
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
 export default function App() {
-  return <AppContent />;
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Still checking localStorage / verifying token
+  if (isLoading) return <Spinner text="Checking session…" />;
+
+  // Not logged in → show login
+  if (!isAuthenticated) return <LoginPage />;
+
+  // Logged in → show dashboard
+  return <Dashboard />;
 }

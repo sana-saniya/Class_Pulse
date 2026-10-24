@@ -1,20 +1,23 @@
-import { GraduationCap, Wifi, WifiOff, Download, Sparkles } from 'lucide-react';
+import { GraduationCap, Wifi, WifiOff, Download, Sparkles, LogOut, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { api } from '../api';
-import type { Role } from '../types';
 
-const ROLES: { value: Role; label: string; emoji: string }[] = [
-  { value: 'faculty', label: 'Faculty', emoji: '👨‍🏫' },
-  { value: 'hod',     label: 'HOD',     emoji: '🏛️' },
-  { value: 'student', label: 'Student', emoji: '🎓' },
-];
+const ROLE_BADGE: Record<string, { label: string; emoji: string; color: string }> = {
+  faculty: { label: 'Faculty',  emoji: '👨‍🏫', color: 'indigo' },
+  hod:     { label: 'HOD',      emoji: '🏛️',  color: 'violet' },
+  student: { label: 'Student',  emoji: '🎓',  color: 'emerald' },
+};
 
 export default function Navbar() {
-  const { role, setRole, isOffline, generateCohort, isLoading } = useApp();
+  const { user, logout } = useAuth();
+  const { isOffline, generateCohort, isLoading } = useApp();
+
+  const badge = user ? (ROLE_BADGE[user.role] ?? ROLE_BADGE.faculty) : null;
 
   const handleExport = () => {
     if (isOffline) {
-      alert('Export is available when backend is running.');
+      alert('Export is available when the backend is running.');
       return;
     }
     api.exportCSV();
@@ -35,54 +38,64 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Role Switcher */}
-        <div className="flex items-center gap-1 bg-gray-900 border border-white/5 rounded-xl p-1">
-          {ROLES.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setRole(r.value)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                role === r.value
-                  ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <span>{r.emoji}</span>
-              <span>{r.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Role badge (read-only, from JWT) */}
+        {badge && (
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-${badge.color}-500/10 border border-${badge.color}-500/20 text-xs font-medium text-${badge.color}-400`}>
+            <span>{badge.emoji}</span>
+            <span>{badge.label}</span>
+          </div>
+        )}
 
         {/* Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => void generateCohort()}
-            disabled={isOffline || isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            Generate Cohort
-          </button>
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
+          {user?.role !== 'student' && (
+            <>
+              <button
+                onClick={() => void generateCohort()}
+                disabled={isOffline || isLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Generate Cohort
+              </button>
 
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export CSV
-          </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+            </>
+          )}
 
-          {/* Connectivity badge */}
+          {/* Online/offline */}
           <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border ${
             isOffline
               ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
               : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
           }`}>
-            {isOffline
-              ? <><WifiOff className="w-3.5 h-3.5" /> Offline</>
-              : <><Wifi className="w-3.5 h-3.5" /> Live</>
-            }
+            {isOffline ? <><WifiOff className="w-3.5 h-3.5" /> Offline</> : <><Wifi className="w-3.5 h-3.5" /> Live</>}
           </div>
+
+          {/* User info + logout */}
+          {user && (
+            <div className="flex items-center gap-2 pl-2 border-l border-white/5">
+              <div className="hidden sm:flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-full bg-brand-600/20 border border-brand-500/30 flex items-center justify-center">
+                  <User className="w-3 h-3 text-brand-400" />
+                </div>
+                <span className="text-xs text-gray-400 max-w-[120px] truncate">{user.name}</span>
+              </div>
+              <button
+                onClick={logout}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

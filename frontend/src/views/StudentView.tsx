@@ -1,14 +1,18 @@
 import { Shield, TrendingUp, BookOpen, Clock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts';
 
-// Uses the first student as the "logged-in" student for demo — in production this would be auth-based
+// Shows the logged-in student's own data matched by rollNo
 export default function StudentView() {
   const { students, thresholds } = useApp();
-  const student = students[0];
+  const { user } = useAuth();
+
+  // Match by rollNo from the JWT — fall back to first student for demo
+  const student = students.find((s) => s.rollNo === user?.rollNo) ?? students[0];
 
   if (!student) return <div className="text-gray-500 text-sm">Loading...</div>;
 
