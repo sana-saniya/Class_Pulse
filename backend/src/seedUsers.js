@@ -1,12 +1,6 @@
-/**
- * Seeds default users for all 3 roles.
- * Run once: node src/seedUsers.js
- */
-require('dotenv').config();
-const mongoose = require('mongoose');
-const User = require('./models/User');
-
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/classpulse';
+const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
+const db = require('./db');
 
 const USERS = [
   {
@@ -15,6 +9,7 @@ const USERS = [
     password:   'Faculty@123',
     role:       'faculty',
     department: 'CSE',
+    roll_no:    null,
   },
   {
     name:       'Prof. Rajan Naidu',
@@ -22,33 +17,36 @@ const USERS = [
     password:   'HOD@123',
     role:       'hod',
     department: 'CSE',
+    roll_no:    null,
   },
   {
     name:       'Aravind Swamy',
     email:      'student@classpulse.edu',
     password:   'Student@123',
     role:       'student',
-    rollNo:     '22G1A0501',
+    roll_no:    '22G1A0501',
     department: 'CSE',
   },
 ];
 
 async function seed() {
-  await mongoose.connect(MONGO_URI);
-  console.log('Connected to MongoDB');
-
+  let seeded = 0;
   for (const u of USERS) {
-    const exists = await User.findOne({ email: u.email });
+    const exists = db.get('SELECT id FROM users WHERE email = ?', [u.email]);
     if (exists) {
-      console.log(`  ↳ Skipped (already exists): ${u.email}`);
+      console.log(`  ↳ Skipped (exists): ${u.email}`);
       continue;
     }
-    await User.create(u);
-    console.log(`  ✅ Created: ${u.email} (${u.role})`);
+    const hash = await bcrypt.hash(u.password, 12);
+    db.run(
+      'INSERT INTO users (id, name, email, password_hash, role, roll_no, department) VALUES (?,?,?,?,?,?,?)',
+      [uuidv4(), u.name, u.email, hash, u.role, u.roll_no, u.department],
+    );
+    console.log(`  ✅ Created: ${u.email}  (${u.role})`);
+    seeded++;
   }
 
-  await mongoose.disconnect();
-  console.log('\nDone. Default credentials:');
+  console.log(`\nSeeded ${seeded} user(s). Login credentials:`);
   console.log('  Faculty : faculty@classpulse.edu  / Faculty@123');
   console.log('  HOD     : hod@classpulse.edu      / HOD@123');
   console.log('  Student : student@classpulse.edu  / Student@123');
