@@ -35,13 +35,19 @@ export const api = {
   generateCohort: () =>
     fetchJSON<{ message: string; count: number }>(`${BASE}/students/generate`, { method: 'POST' }),
 
-  exportCSV: () => {
+  exportCSV: async () => {
     const token = getToken();
+    const res = await fetch(`${BASE}/students/export`, {
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    // Pass token as query param for file downloads
-    link.href = `${BASE}/students/export?token=${token ?? ''}`;
+    link.href = url;
     link.download = 'classpulse-report.csv';
     link.click();
+    URL.revokeObjectURL(url);
   },
 
   // Thresholds

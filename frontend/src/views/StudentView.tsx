@@ -16,12 +16,18 @@ export default function StudentView() {
 
   if (!student) return <div className="text-gray-500 text-sm">Loading...</div>;
 
+  // Simulate 8-week attendance trend converging to current value
+  const base = student.attendancePct;
   const attendanceLine = [
-    { week: 'W1', att: Math.min(100, student.attendancePct + 15) },
-    { week: 'W2', att: Math.min(100, student.attendancePct + 10) },
-    { week: 'W3', att: Math.min(100, student.attendancePct + 5) },
-    { week: 'W4', att: student.attendancePct },
-  ];
+    { week: 'Week 1', att: Math.min(100, Math.round(base + 12 + Math.random() * 3)) },
+    { week: 'Week 2', att: Math.min(100, Math.round(base +  8 + Math.random() * 3)) },
+    { week: 'Week 3', att: Math.min(100, Math.round(base +  5 + Math.random() * 3)) },
+    { week: 'Week 4', att: Math.min(100, Math.round(base +  3 + Math.random() * 2)) },
+    { week: 'Week 5', att: Math.min(100, Math.round(base +  1)) },
+    { week: 'Week 6', att: Math.min(100, Math.round(base -  1)) },
+    { week: 'Week 7', att: Math.min(100, Math.round(base)) },
+    { week: 'Week 8', att: Math.min(100, base) },
+  ].map(w => ({ ...w, att: Math.max(0, w.att) }));
 
   const radarData = [
     { subject: 'Attendance', A: student.attendancePct },

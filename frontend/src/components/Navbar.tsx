@@ -15,12 +15,16 @@ export default function Navbar() {
 
   const badge = user ? (ROLE_BADGE[user.role] ?? ROLE_BADGE.faculty) : null;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (isOffline) {
       alert('Export is available when the backend is running.');
       return;
     }
-    api.exportCSV();
+    try {
+      await api.exportCSV();
+    } catch {
+      alert('Export failed. Please try again.');
+    }
   };
 
   return (
@@ -60,7 +64,7 @@ export default function Navbar() {
               </button>
 
               <button
-                onClick={handleExport}
+                onClick={() => void handleExport()}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
