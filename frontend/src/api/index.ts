@@ -55,6 +55,40 @@ export const api = {
   generateCohort: () =>
     fetchJSON<{ message: string; count: number }>(`${BASE}/students/generate`, { method: 'POST' }),
 
+  allocateStudents: (allocations: { studentId: string; assignedFacultyId: string }[]) =>
+    fetchJSON<{ message: string; students: Student[] }>(`${BASE}/students/allocate`, {
+      method: 'POST',
+      body: JSON.stringify({ allocations }),
+    }),
+
+  assignStudent: (studentId: string, assignedFacultyId: string | null) =>
+    fetchJSON<Student>(`${BASE}/students/${studentId}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ assignedFacultyId }),
+    }),
+
+  requestProfileUpdate: (studentId: string, data: { phone?: string; parentPhone?: string; reason?: string }) =>
+    fetchJSON<{ message: string; student: Student }>(`${BASE}/students/${studentId}/request-profile-update`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  approveProfileUpdate: (studentId: string) =>
+    fetchJSON<{ message: string; student: Student }>(`${BASE}/students/${studentId}/approve-profile-update`, {
+      method: 'POST',
+    }),
+
+  rejectProfileUpdate: (studentId: string, rejectionReason?: string) =>
+    fetchJSON<{ message: string; student: Student }>(`${BASE}/students/${studentId}/reject-profile-update`, {
+      method: 'POST',
+      body: JSON.stringify({ rejectionReason }),
+    }),
+
+  cancelProfileUpdate: (studentId: string) =>
+    fetchJSON<{ message: string; student: Student }>(`${BASE}/students/${studentId}/request-profile-update`, {
+      method: 'DELETE',
+    }),
+
   exportCSV: async () => {
     const token = getToken();
     const res = await fetch(`${BASE}/students/export`, {

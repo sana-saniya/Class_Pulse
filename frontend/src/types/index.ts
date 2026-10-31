@@ -17,6 +17,15 @@ export interface Intervention {
   actionTakenBy: string;
 }
 
+export interface ProfileUpdateDetails {
+  phone?: string | null;
+  parentPhone?: string | null;
+  reason?: string;
+  requestedAt: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  requestedBy?: string | null;
+}
+
 export interface Student {
   id: string;
   rollNo: string;
@@ -26,8 +35,14 @@ export interface Student {
   attendancePct: number;
   scores: AssessmentScores;
   backlogs: number;
+  phone?: string | null;
   parentEmail?: string | null;
   parentPhone?: string | null;
+  homeDistrict?: string;
+  state?: string;
+  parentLanguage?: string; // default 'te'
+  assignedFacultyId?: string;
+  pendingProfileUpdate?: ProfileUpdateDetails | null;
   interventions: Intervention[];
 }
 

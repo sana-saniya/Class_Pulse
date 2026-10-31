@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, ChevronDown, ChevronUp, AlertCircle, Trash2 } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, AlertCircle, Trash2, MapPin, Users } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { assessRisk, getRiskColor } from '../utils/riskEngine';
 import type { Student } from '../types';
 
@@ -14,21 +15,27 @@ export default function StudentTable({
   allowDelete?: boolean;
 }) {
   const { students, thresholds, selectedStudentId, deleteStudent } = useApp();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('rollNo');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [deptFilter, setDeptFilter] = useState('All');
+  const [cohortFilter, setCohortFilter] = useState<'all' | 'my_mentees'>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const departments = ['All', ...Array.from(new Set(students.map((s) => s.department))).sort()];
 
+  const isFacultyUser = user?.role === 'faculty';
+
   const filtered = students
     .filter((s) => {
       const q = search.toLowerCase();
-      return (
-        (deptFilter === 'All' || s.department === deptFilter) &&
-        (s.name.toLowerCase().includes(q) || s.rollNo.toLowerCase().includes(q))
-      );
+      const matchesSearch = s.name.toLowerCase().includes(q) || s.rollNo.toLowerCase().includes(q);
+      const matchesDept = deptFilter === 'All' || s.department === deptFilter;
+      const matchesMentor =
+        cohortFilter === 'all' ||
+        (isFacultyUser && user?.id && (s.assignedFacultyId === user.id || (!s.assignedFacultyId && s.department === user.department)));
+      return matchesSearch && matchesDept && matchesMentor;
     })
     .sort((a, b) => {
       let va: string | number = a[sortKey];
@@ -75,6 +82,28 @@ export default function StudentTable({
             className="w-full bg-gray-800 border border-white/5 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-500/50"
           />
         </div>
+        {isFacultyUser && (
+          <div className="flex bg-gray-800 p-0.5 rounded-lg border border-white/5">
+            <button
+              onClick={() => setCohortFilter('all')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                cohortFilter === 'all' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              All Cohort
+            </button>
+            <button
+              onClick={() => setCohortFilter('my_mentees')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                cohortFilter === 'my_mentees' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-3 h-3 text-brand-300" />
+              My Mentees
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-1.5">
           {departments.map((d) => (
             <button
@@ -137,7 +166,27 @@ export default function StudentTable({
                   }`}
                 >
                   <td className="px-4 py-3 text-gray-400 font-mono font-medium">{s.rollNo}</td>
-                  <td className="px-4 py-3 text-white font-medium">{s.name}</td>
+                  <td className="px-4 py-3 text-white font-medium">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span>{s.name}</span>
+                        {s.pendingProfileUpdate && s.pendingProfileUpdate.status === 'Pending' && (
+                          <span
+                            title={`Requested phone change to ${s.pendingProfileUpdate.phone || 'new number'}`}
+                            className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0"
+                          >
+                            Update Pending
+                          </span>
+                        )}
+                      </div>
+                      {s.homeDistrict && (
+                        <span className="text-[10px] text-gray-500 flex items-center gap-1 font-normal">
+                          <MapPin className="w-2.5 h-2.5 text-brand-400" />
+                          {s.homeDistrict}, {s.state || 'AP'}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-white/5">
                       {s.department}-{s.section}

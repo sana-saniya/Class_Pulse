@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from './context/AuthContext';
 import { useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
@@ -6,7 +7,10 @@ import FacultyView from './views/FacultyView';
 import HODView from './views/HODView';
 import StudentView from './views/StudentView';
 import ParentView from './views/ParentView';
+import ProfileUpdatesView from './views/ProfileUpdatesView';
 import { Loader2 } from 'lucide-react';
+
+export type AppPage = 'dashboard' | 'profile-updates';
 
 function Spinner({ text }: { text: string }) {
   return (
@@ -24,21 +28,34 @@ function Spinner({ text }: { text: string }) {
 function Dashboard() {
   const { user } = useAuth();
   const { isLoading } = useApp();
+  const [page, setPage] = useState<AppPage>('dashboard');
 
   if (isLoading) return <Spinner text="Loading dashboard…" />;
 
+  const isFacultyOrHod = user?.role === 'faculty' || user?.role === 'hod';
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <Navbar />
+      <Navbar currentPage={page} setPage={setPage} />
       <main className="max-w-screen-xl mx-auto px-4 py-6">
-        {user?.role === 'faculty'  && <FacultyView />}
-        {user?.role === 'hod'      && <HODView />}
-        {user?.role === 'student'  && <StudentView />}
-        {user?.role === 'parent'   && <ParentView />}
-        {!user?.role && (
-          <div className="text-center text-gray-500 py-20">
-            Unknown role. Please contact your administrator.
-          </div>
+        {/* Profile updates page — faculty & HOD only */}
+        {isFacultyOrHod && page === 'profile-updates' && (
+          <ProfileUpdatesView onBack={() => setPage('dashboard')} />
+        )}
+
+        {/* Main dashboard views */}
+        {page === 'dashboard' && (
+          <>
+            {user?.role === 'faculty'  && <FacultyView />}
+            {user?.role === 'hod'      && <HODView />}
+            {user?.role === 'student'  && <StudentView />}
+            {user?.role === 'parent'   && <ParentView />}
+            {!user?.role && (
+              <div className="text-center text-gray-500 py-20">
+                Unknown role. Please contact your administrator.
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

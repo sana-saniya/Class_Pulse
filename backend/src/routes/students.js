@@ -20,8 +20,21 @@ function formatStudent(s) {
       totalAssignments: s.scores?.totalAssignments ?? 5,
     },
     backlogs: s.backlogs ?? 0,
+    phone: s.phone || null,
     parentEmail: s.parentEmail || null,
     parentPhone: s.parentPhone || null,
+    homeDistrict: s.homeDistrict || null,
+    state: s.state || null,
+    parentLanguage: s.parentLanguage || 'te',
+    assignedFacultyId: s.assignedFacultyId || null,
+    pendingProfileUpdate: s.pendingProfileUpdate && s.pendingProfileUpdate.status ? {
+      phone: s.pendingProfileUpdate.phone || null,
+      parentPhone: s.pendingProfileUpdate.parentPhone || null,
+      reason: s.pendingProfileUpdate.reason || '',
+      requestedAt: s.pendingProfileUpdate.requestedAt || '',
+      status: s.pendingProfileUpdate.status || 'Pending',
+      requestedBy: s.pendingProfileUpdate.requestedBy || null,
+    } : null,
     interventions: (s.interventions || []).map((i) => ({
       id: i.id,
       date: i.date,
@@ -106,6 +119,46 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
     res.json({ message: 'Student removed successfully', id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/students/allocate - Batch allocate students to faculty
+router.post('/allocate', async (req, res) => {
+  try {
+    const { allocations } = req.body; // array of { studentId, assignedFacultyId }
+    if (!Array.isArray(allocations)) {
+      return res.status(400).json({ error: 'Allocations array required' });
+    }
+
+    const updates = allocations.map((a) =>
+      Student.findByIdAndUpdate(a.studentId, { assignedFacultyId: a.assignedFacultyId }, { new: true })
+    );
+    await Promise.all(updates);
+
+    const updatedStudents = await Student.find().sort({ rollNo: 1 });
+    res.json({ message: `Successfully allocated ${allocations.length} students`, students: updatedStudents.map(formatStudent) });
+  } catch (err) {
+    console.error('Allocation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/students/:id/assign - Assign single student to faculty
+router.patch('/:id/assign', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assignedFacultyId } = req.body;
+    const student = await Student.findByIdAndUpdate(
+      id,
+      { assignedFacultyId: assignedFacultyId || null },
+      { new: true }
+    );
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    res.json(formatStudent(student));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -196,6 +249,149 @@ router.get('/export', async (req, res) => {
     res.send(csv);
   } catch (err) {
     console.error('Export error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/students/:id/request-profile-update (Student requests phone / contact change)
+router.post('/:id/request-profile-update', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { phone, parentPhone, reason } = req.body;
+
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (!phone && !parentPhone) {
+      return res.status(400).json({ error: 'Please provide at least a phone or parent phone number' });
+    }
+
+    student.pendingProfileUpdate = {
+      phone: phone ? phone.trim() : student.phone,
+      parentPhone: parentPhone ? parentPhone.trim() : student.parentPhone,
+      reason: reason ? reason.trim() : 'Contact update requested by student',
+      requestedAt: new Date().toISOString(),
+      status: 'Pending',
+      requestedBy: req.user?.name || req.user?.email || 'Student',
+    };
+
+    await student.save();
+    res.json({
+      message: 'Profile update request submitted successfully. It will take effect once approved by your assigned faculty mentor.',
+      student: formatStudent(student),
+    });
+  } catch (err) {
+    console.error('Request profile update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/students/:id/approve-profile-update (Faculty / HOD approves change)
+router.post('/:id/approve-profile-update', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user?.role !== 'faculty' && req.user?.role !== 'hod') {
+      return res.status(403).json({ error: 'Only faculty mentors or HOD can approve profile updates' });
+    }
+
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (!student.pendingProfileUpdate || student.pendingProfileUpdate.status !== 'Pending') {
+      return res.status(400).json({ error: 'No pending profile update found for this student' });
+    }
+
+    const newPhone = student.pendingProfileUpdate.phone;
+    const newParentPhone = student.pendingProfileUpdate.parentPhone;
+    const reason = student.pendingProfileUpdate.reason;
+
+    if (newPhone) student.phone = newPhone;
+    if (newParentPhone) student.parentPhone = newParentPhone;
+
+    // Log intervention record for auditability
+    student.interventions.push({
+      id: uuidv4(),
+      date: new Date().toISOString().split('T')[0],
+      type: '1-on-1 Counseling',
+      notes: `Faculty approved student contact update: Phone updated to ${student.phone || 'N/A'}${newParentPhone ? `, Parent Phone: ${newParentPhone}` : ''}. (${reason || 'Verified by faculty'})`,
+      status: 'Resolved',
+      actionTakenBy: req.user?.name || 'Assigned Faculty Mentor',
+      createdAt: new Date(),
+    });
+
+    student.pendingProfileUpdate = null;
+    await student.save();
+
+    // Also sync User model if student user exists
+    try {
+      const User = require('../models/User');
+      await User.findOneAndUpdate(
+        { rollNo: student.rollNo, role: 'student' },
+        { phone: student.phone }
+      );
+    } catch (uErr) {
+      console.warn('User phone sync warning:', uErr.message);
+    }
+
+    res.json({
+      message: 'Student profile update approved and applied successfully.',
+      student: formatStudent(student),
+    });
+  } catch (err) {
+    console.error('Approve profile update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/students/:id/reject-profile-update (Faculty / HOD rejects change)
+router.post('/:id/reject-profile-update', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user?.role !== 'faculty' && req.user?.role !== 'hod') {
+      return res.status(403).json({ error: 'Only faculty mentors or HOD can reject profile updates' });
+    }
+
+    const { rejectionReason } = req.body;
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    student.pendingProfileUpdate = null;
+    await student.save();
+
+    res.json({
+      message: 'Profile update request has been rejected.',
+      student: formatStudent(student),
+    });
+  } catch (err) {
+    console.error('Reject profile update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/students/:id/request-profile-update (Cancel pending request by student)
+router.delete('/:id/request-profile-update', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    student.pendingProfileUpdate = null;
+    await student.save();
+
+    res.json({
+      message: 'Pending profile update request has been cancelled.',
+      student: formatStudent(student),
+    });
+  } catch (err) {
+    console.error('Cancel profile update error:', err);
     res.status(500).json({ error: err.message });
   }
 });

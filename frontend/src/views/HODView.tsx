@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, Users, TrendingDown, Activity, UserPlus, Trash2, Mail, Phone, ShieldCheck, Loader2 } from 'lucide-react';
+import { Building2, Users, TrendingDown, Activity, UserPlus, Trash2, Mail, Phone, ShieldCheck, Loader2, Sparkles, UserCheck, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api';
 import { assessRisk } from '../utils/riskEngine';
+import { getAllocatedStudentsForFaculty, divideStudentsAcrossFaculty } from '../utils/allocationEngine';
+import FacultyAllocationModal from '../components/FacultyAllocationModal';
+import InterventionModal from '../components/InterventionModal';
 import AnalyticsCharts from '../components/AnalyticsCharts';
-import type { FacultyUser } from '../types';
+import type { FacultyUser, Student } from '../types';
 
 const DEPTS = ['CSE', 'ECE', 'EEE', 'MECH'];
 const DEPT_COLORS: Record<string, string> = {
@@ -12,11 +15,15 @@ const DEPT_COLORS: Record<string, string> = {
 };
 
 export default function HODView() {
-  const { students, thresholds } = useApp();
+  const { students, thresholds, allocateStudents } = useApp();
   const [activeTab, setActiveTab] = useState<'analytics' | 'faculty'>('analytics');
   const [facultyList, setFacultyList] = useState<FacultyUser[]>([]);
   const [facultyLoading, setFacultyLoading] = useState(false);
   const [isAddingFaculty, setIsAddingFaculty] = useState(false);
+  const [selectedFacultyForAllocation, setSelectedFacultyForAllocation] = useState<FacultyUser | null>(null);
+  const [interventionStudent, setInterventionStudent] = useState<Student | null>(null);
+  const [isAutoDistributing, setIsAutoDistributing] = useState(false);
+  const [distributeSuccess, setDistributeSuccess] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -83,6 +90,34 @@ export default function HODView() {
     }
   };
 
+  const handleAutoDistribute = async () => {
+    if (facultyList.length === 0) {
+      alert('Please register at least one faculty member before distributing students.');
+      return;
+    }
+    setIsAutoDistributing(true);
+    setDistributeSuccess(null);
+    try {
+      const allocationMap = divideStudentsAcrossFaculty(students, facultyList, true);
+      const updates = Array.from(allocationMap.entries()).map(([studentId, assignedFacultyId]) => ({
+        studentId,
+        assignedFacultyId,
+      }));
+      await allocateStudents(updates);
+      const baseCount = Math.floor(students.length / facultyList.length);
+      const remainder = students.length % facultyList.length;
+      const countMsg = remainder === 0 ? `${baseCount} students each` : `~${baseCount}–${baseCount + 1} students each`;
+      setDistributeSuccess(
+        `Balanced cohort successfully! ${students.length} students divided evenly (${countMsg}) across ${facultyList.length} faculty member(s).`
+      );
+      setTimeout(() => setDistributeSuccess(null), 5000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to distribute students');
+    } finally {
+      setIsAutoDistributing(false);
+    }
+  };
+
   const deptStats = DEPTS.map((dept) => {
     const group = students.filter((s) => s.department === dept);
     const risks = group.map((s) => assessRisk(s, thresholds).level);
@@ -112,17 +147,15 @@ export default function HODView() {
         <div className="flex bg-gray-800 p-1 rounded-xl border border-white/5">
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'analytics' ? 'bg-brand-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
-            }`}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'analytics' ? 'bg-brand-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
+              }`}
           >
             Dept Analytics & Audits
           </button>
           <button
             onClick={() => setActiveTab('faculty')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'faculty' ? 'bg-brand-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
-            }`}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${activeTab === 'faculty' ? 'bg-brand-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
+              }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             Manage Faculty ({facultyList.length || '•'})
@@ -132,20 +165,52 @@ export default function HODView() {
 
       {activeTab === 'faculty' ? (
         <div className="space-y-6">
-          {/* Faculty Header & Add Button */}
-          <div className="flex justify-between items-center bg-gray-900 border border-white/5 rounded-2xl p-4">
+          {/* Faculty Header & Actions */}
+          <div className="flex flex-wrap justify-between items-center gap-4 bg-gray-900 border border-white/5 rounded-2xl p-4">
             <div>
-              <h3 className="text-sm font-semibold text-white">Faculty Members Directory</h3>
-              <p className="text-xs text-gray-400">Registered department faculty with active evaluation and intervention credentials</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-white">Faculty Mentorship & Allocation Directory</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-500/10 text-brand-300 border border-brand-500/20">
+                  NEP 2020 Mentor-Student Ratios
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Click on any faculty member to review their allocated students, risk levels, and mentorship caseload.
+              </p>
             </div>
-            <button
-              onClick={() => setIsAddingFaculty(!isAddingFaculty)}
-              className="px-3.5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-brand-600/20"
-            >
-              <UserPlus className="w-4 h-4" />
-              {isAddingFaculty ? 'Close Form' : 'Add New Faculty'}
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={() => void handleAutoDistribute()}
+                disabled={isAutoDistributing || facultyList.length === 0}
+                className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-brand-600 hover:from-indigo-500 hover:to-brand-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50"
+                title="Equally divide and balance student cohort across all active faculty"
+              >
+                {isAutoDistributing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                )}
+                {isAutoDistributing ? 'Balancing Cohort…' : '⚡ Auto-Distribute Cohort Evenly'}
+              </button>
+
+              <button
+                onClick={() => setIsAddingFaculty(!isAddingFaculty)}
+                className="px-3.5 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-brand-600/20"
+              >
+                <UserPlus className="w-4 h-4" />
+                {isAddingFaculty ? 'Close Form' : 'Add New Faculty'}
+              </button>
+            </div>
           </div>
+
+          {/* Success notice */}
+          {distributeSuccess && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>{distributeSuccess}</span>
+            </div>
+          )}
 
           {/* Add Faculty Form */}
           {isAddingFaculty && (
@@ -237,55 +302,107 @@ export default function HODView() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-white/5 text-gray-500">
-                      <th className="px-4 py-3 text-left">Faculty Name</th>
+                    <tr className="border-b border-white/5 text-gray-500 bg-gray-800/20">
+                      <th className="px-4 py-3 text-left">Faculty Member</th>
                       <th className="px-4 py-3 text-left">Email Address</th>
                       <th className="px-4 py-3 text-left">Department</th>
+                      <th className="px-4 py-3 text-left">Allocated Students (Workload)</th>
                       <th className="px-4 py-3 text-left">Phone</th>
-                      <th className="px-4 py-3 text-right">Action</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {facultyList.map((f) => (
-                      <tr key={f._id} className="border-b border-white/5 hover:bg-white/3">
-                        <td className="px-4 py-3 text-white font-medium flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 font-bold flex items-center justify-center text-xs">
-                            {f.name[0]}
-                          </div>
-                          {f.name}
-                        </td>
-                        <td className="px-4 py-3 text-gray-300 font-mono text-[11px] flex items-center gap-1.5">
-                          <Mail className="w-3 h-3 text-gray-500" />
-                          {f.email}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-white/5">
-                            {f.department || 'CSE'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-400">
-                          {f.phone ? (
-                            <span className="flex items-center gap-1 text-[11px]">
-                              <Phone className="w-3 h-3 text-gray-500" /> {f.phone}
+                    {facultyList.map((f) => {
+                      const allocated = getAllocatedStudentsForFaculty(f._id, students, facultyList);
+                      const pct = students.length > 0 ? Math.round((allocated.length / students.length) * 100) : 0;
+
+                      return (
+                        <tr
+                          key={f._id}
+                          onClick={() => setSelectedFacultyForAllocation(f)}
+                          className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
+                        >
+                          <td className="px-4 py-3 text-white font-medium">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 font-bold flex items-center justify-center text-xs border border-indigo-500/20 group-hover:border-brand-500/50 transition-colors">
+                                {f.name[0]}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-white group-hover:text-brand-300 transition-colors">{f.name}</p>
+                                <p className="text-[10px] text-gray-500">Department Faculty</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-300 font-mono text-[11px]">
+                            <span className="flex items-center gap-1.5">
+                              <Mail className="w-3 h-3 text-gray-500" />
+                              {f.email}
                             </span>
-                          ) : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            disabled={deletingId === f._id}
-                            onClick={() => void handleDeleteFaculty(f._id, f.name)}
-                            className="px-2.5 py-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors inline-flex items-center gap-1 disabled:opacity-50"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-white/5 font-semibold text-[11px]">
+                              {f.department || 'CSE'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-brand-500/15 text-brand-300 border border-brand-500/30 inline-flex items-center gap-1.5 shadow-sm">
+                                  <Users className="w-3.5 h-3.5 text-brand-400" />
+                                  {allocated.length} Students Allocated
+                                </span>
+                                <span className="text-[11px] text-gray-400">({pct}% cohort)</span>
+                              </div>
+                              <div className="w-36 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-brand-500 to-indigo-500 rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, Math.max(10, pct * 2))}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">
+                            {f.phone ? (
+                              <span className="flex items-center gap-1 text-[11px]">
+                                <Phone className="w-3 h-3 text-gray-500" /> {f.phone}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedFacultyForAllocation(f);
+                                }}
+                                className="px-2.5 py-1 text-xs font-semibold bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/30 rounded-lg transition-all inline-flex items-center gap-1 shadow-sm"
+                              >
+                                <UserCheck className="w-3.5 h-3.5" />
+                                View Students ({allocated.length})
+                              </button>
+                              <button
+                                type="button"
+                                disabled={deletingId === f._id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDeleteFaculty(f._id, f.name);
+                                }}
+                                title="Remove faculty member"
+                                className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors inline-flex items-center disabled:opacity-50"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {facultyList.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-gray-500">
+                        <td colSpan={6} className="py-8 text-center text-gray-500">
                           No faculty registered in MongoDB. Click "Add New Faculty" above to add one.
                         </td>
                       </tr>
@@ -385,11 +502,10 @@ export default function HODView() {
                         <td className="px-3 py-2 text-gray-300">{iv.type}</td>
                         <td className="px-3 py-2 text-gray-400">{iv.actionTakenBy}</td>
                         <td className="px-3 py-2">
-                          <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${
-                            iv.status === 'Resolved' ? 'bg-emerald-500/15 text-emerald-400'
+                          <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${iv.status === 'Resolved' ? 'bg-emerald-500/15 text-emerald-400'
                             : iv.status === 'In Progress' ? 'bg-amber-500/15 text-amber-400'
-                            : 'bg-gray-700 text-gray-400'
-                          }`}>{iv.status}</span>
+                              : 'bg-gray-700 text-gray-400'
+                            }`}>{iv.status}</span>
                         </td>
                         <td className="px-3 py-2 text-gray-500">{iv.date}</td>
                       </tr>
@@ -404,6 +520,26 @@ export default function HODView() {
           </div>
         </>
       )}
+
+      {/* Faculty Allocated Students Modal */}
+      {selectedFacultyForAllocation && (
+        <FacultyAllocationModal
+          faculty={selectedFacultyForAllocation}
+          allocatedStudents={getAllocatedStudentsForFaculty(selectedFacultyForAllocation._id, students, facultyList)}
+          allFaculty={facultyList}
+          onClose={() => setSelectedFacultyForAllocation(null)}
+          onOpenIntervention={(s) => setInterventionStudent(s)}
+        />
+      )}
+
+      {/* Quick Intervention Modal */}
+      {interventionStudent && (
+        <InterventionModal
+          student={interventionStudent}
+          onClose={() => setInterventionStudent(null)}
+        />
+      )}
     </div>
   );
 }
+

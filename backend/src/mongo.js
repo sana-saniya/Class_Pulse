@@ -37,6 +37,22 @@ async function seedMongoIfEmpty() {
         rollNo: null,
       },
       {
+        name: 'Dr. K. V. Raman',
+        email: 'raman@classpulse.edu',
+        password: 'Faculty@123',
+        role: 'faculty',
+        department: 'ECE',
+        rollNo: null,
+      },
+      {
+        name: 'Prof. Sneha Kulkarni',
+        email: 'sneha@classpulse.edu',
+        password: 'Faculty@123',
+        role: 'faculty',
+        department: 'CSE',
+        rollNo: null,
+      },
+      {
         name: 'Prof. Rajan Naidu',
         email: 'hod@classpulse.edu',
         password: 'HOD@123',

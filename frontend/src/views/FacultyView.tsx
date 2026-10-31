@@ -1,6 +1,15 @@
 import { useState } from 'react';
-import { MessageSquarePlus, Users, AlertTriangle, CheckCircle2, TrendingDown, UserPlus } from 'lucide-react';
+import {
+  MessageSquarePlus,
+  Users,
+  AlertTriangle,
+  CheckCircle2,
+  TrendingDown,
+  UserPlus,
+  Phone,
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { assessRisk, getRiskColor } from '../utils/riskEngine';
 import StudentTable from '../components/StudentTable';
 import ThresholdControls from '../components/ThresholdControls';
@@ -10,7 +19,13 @@ import AddStudentModal from '../components/AddStudentModal';
 import type { Student } from '../types';
 
 export default function FacultyView() {
-  const { students, thresholds, selectedStudentId, setSelectedStudentId } = useApp();
+  const {
+    students,
+    thresholds,
+    selectedStudentId,
+    setSelectedStudentId,
+  } = useApp();
+  const { user } = useAuth();
   const [modalStudent, setModalStudent] = useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
 
@@ -28,8 +43,11 @@ export default function FacultyView() {
       {/* Top action bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-900 border border-white/5 rounded-2xl p-4">
         <div>
-          <h2 className="text-base font-bold text-white">Faculty Academic Dashboard</h2>
-          <p className="text-xs text-gray-400">Add, track and log interventions for students with direct cloud sync</p>
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            Faculty Academic Dashboard
+            {user?.name && <span className="text-xs text-brand-400 font-normal">· {user.name}</span>}
+          </h2>
+          <p className="text-xs text-gray-400">Track academic caseload, review mentee profile updates, and log interventions</p>
         </div>
         <button
           onClick={() => setIsAddStudentOpen(true)}
@@ -104,13 +122,26 @@ export default function FacultyView() {
                   ))}
                 </div>
 
-                {/* Parent Contact Details */}
-                <div className="mt-3 p-2.5 bg-gray-800/80 rounded-xl text-xs space-y-1">
-                  <p className="text-gray-400 font-medium text-[11px]">Parent / Guardian</p>
-                  <p className="text-gray-200">{selectedStudent.parentEmail || 'No parent email linked'}</p>
-                  {selectedStudent.parentPhone && (
-                    <p className="text-gray-400 text-[10px]">{selectedStudent.parentPhone}</p>
-                  )}
+                {/* Student & Parent Contact Details */}
+                <div className="mt-3 p-3 bg-gray-800/80 rounded-xl text-xs space-y-2 border border-white/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-[11px] flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-brand-400" />
+                      Student Phone
+                    </span>
+                    <span className="text-white font-mono font-medium">
+                      {selectedStudent.phone || '+91 98765 43210'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1.5 border-t border-white/5">
+                    <span className="text-gray-400 text-[11px]">Parent / Guardian</span>
+                    <div className="text-right">
+                      <p className="text-gray-200 text-[11px]">{selectedStudent.parentEmail || 'No email'}</p>
+                      {selectedStudent.parentPhone && (
+                        <p className="text-gray-400 text-[10px] font-mono">{selectedStudent.parentPhone}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <button

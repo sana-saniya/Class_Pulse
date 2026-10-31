@@ -13,8 +13,17 @@ const studentSchema = new mongoose.Schema({
     totalAssignments: { type: Number, default: 5 },
   },
   backlogs: { type: Number, default: 0 },
+  phone: { type: String, default: null },
   parentEmail: { type: String, default: null, lowercase: true, trim: true },
   parentPhone: { type: String, default: null },
+  homeDistrict: { type: String, default: null },
+  state: { type: String, default: null },
+  parentLanguage: { type: String, default: 'te' },
+  assignedFacultyId: { type: String, default: null },
+  pendingProfileUpdate: {
+    type: Object,
+    default: null,
+  },
   interventions: [
     {
       id: { type: String, required: true },

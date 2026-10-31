@@ -60,8 +60,8 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/auth/faculty (HOD gets all faculty members)
-router.get('/faculty', requireAuth, requireRole('hod'), async (req, res) => {
+// GET /api/auth/faculty (All authenticated roles can read faculty directory)
+router.get('/faculty', requireAuth, requireRole('hod', 'faculty', 'student', 'parent'), async (req, res) => {
   try {
     const facultyList = await User.find({ role: 'faculty' })
       .select('name email role department phone createdAt')

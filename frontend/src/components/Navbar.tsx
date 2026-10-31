@@ -1,7 +1,8 @@
-import { GraduationCap, Wifi, WifiOff, Download, Sparkles, LogOut, User } from 'lucide-react';
+import { GraduationCap, Wifi, WifiOff, Download, Sparkles, LogOut, User, Clock3 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { api } from '../api';
+import type { AppPage } from '../App';
 
 const ROLE_BADGE: Record<string, { label: string; emoji: string; color: string }> = {
   faculty: { label: 'Faculty', emoji: '👨‍🏫', color: 'indigo' },
@@ -10,11 +11,22 @@ const ROLE_BADGE: Record<string, { label: string; emoji: string; color: string }
   parent:  { label: 'Parent',  emoji: '👨‍👩‍👧', color: 'amber' },
 };
 
-export default function Navbar() {
+interface NavbarProps {
+  currentPage: AppPage;
+  setPage: (page: AppPage) => void;
+}
+
+export default function Navbar({ currentPage, setPage }: NavbarProps) {
   const { user, logout } = useAuth();
-  const { isOffline, generateCohort, isLoading } = useApp();
+  const { isOffline, generateCohort, isLoading, students } = useApp();
 
   const badge = user ? (ROLE_BADGE[user.role] ?? ROLE_BADGE.faculty) : null;
+  const isFacultyOrHod = user?.role === 'faculty' || user?.role === 'hod';
+
+  // Count students with pending profile update requests
+  const pendingCount = isFacultyOrHod
+    ? students.filter((s) => s.pendingProfileUpdate?.status === 'Pending').length
+    : 0;
 
   const handleExport = async () => {
     if (isOffline) {
@@ -53,8 +65,26 @@ export default function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0 ml-auto">
-          {user?.role !== 'student' && (
+          {isFacultyOrHod && (
             <>
+              {/* Profile Requests nav link */}
+              <button
+                onClick={() => setPage(currentPage === 'profile-updates' ? 'dashboard' : 'profile-updates')}
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  currentPage === 'profile-updates'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+                }`}
+              >
+                <Clock3 className={`w-3.5 h-3.5 ${pendingCount > 0 ? 'animate-pulse' : ''}`} />
+                Profile Requests
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full bg-amber-500 text-gray-950 text-[10px] font-black flex items-center justify-center px-1 shadow-lg shadow-amber-500/40">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+
               <button
                 onClick={() => void generateCohort()}
                 disabled={isOffline || isLoading}

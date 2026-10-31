@@ -18,6 +18,7 @@ app.use('/api/auth', require('./routes/auth'));
 // Protected
 const { requireAuth, requireRole } = require('./middleware/auth');
 app.use('/api/students',     requireAuth, requireRole('faculty', 'hod', 'student', 'parent'), require('./routes/students'));
+app.use('/api/reset', requireAuth, requireRole('hod', 'faculty'), require('./routes/reset'));
 app.use('/api/interventions',requireAuth, requireRole('faculty', 'hod'),                       require('./routes/interventions'));
 app.use('/api/thresholds',   requireAuth, requireRole('faculty', 'hod', 'student', 'parent'), require('./routes/thresholds'));
 

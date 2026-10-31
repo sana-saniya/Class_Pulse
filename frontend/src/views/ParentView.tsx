@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { HeartHandshake, Calendar, AlertTriangle, CheckCircle, TrendingDown, Clock, ShieldCheck, Mail, Phone, Award } from 'lucide-react';
+import { HeartHandshake, Calendar, AlertTriangle, CheckCircle, TrendingDown, Clock, ShieldCheck, Mail, Phone, Award, Globe, MessageCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { assessRisk } from '../utils/riskEngine';
+import { detectStudentLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from '../utils/languageRouter';
+import { generateLocalizedNotification } from '../utils/notificationTemplates';
+import { buildWhatsAppLink } from '../utils/messagingGateway';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   LineChart, Line
@@ -49,6 +52,25 @@ export default function ParentView() {
     { month: 'Month 3', att: Math.min(100, Math.round(base)) },
     { month: 'Current', att: student.attendancePct },
   ];
+
+  const detectedLang = detectStudentLanguage(student);
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(detectedLang);
+
+  const localizedUpdate = generateLocalizedNotification(
+    {
+      student,
+      facultyName: 'Department Academic Mentor',
+      interventionType: student.interventions[0]?.type || 'Continuous Academic Review',
+      notes: student.interventions[0]?.notes || (risk.reasons.length > 0 ? risk.reasons.join('; ') : 'Student is maintaining steady academic momentum.'),
+    },
+    selectedLanguage
+  );
+
+  const handleParentWhatsApp = () => {
+    const phone = student.parentPhone || '+919876543210';
+    const link = buildWhatsAppLink(phone, localizedUpdate.message);
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -154,6 +176,71 @@ export default function ParentView() {
             </p>
             <p className="text-[10px] text-gray-500 mt-1">Tolerance threshold: {thresholds.backlogsMax}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Multilingual Regional Academic Outreach Card */}
+      <div className="bg-gradient-to-br from-gray-900 to-indigo-950/30 border border-brand-500/30 rounded-2xl p-5 space-y-4 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-300 flex items-center justify-center">
+              <Globe className="w-4 h-4 text-brand-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-white">Multilingual Regional Notice & Parent Advisory</h4>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-brand-500/10 text-brand-300 border border-brand-500/20 font-medium">
+                  Auto-Mapped: {student.homeDistrict ? `${student.homeDistrict} (${student.state || 'AP'})` : 'JNTUA Region'}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Personalized academic status rendered directly in native regional language
+              </p>
+            </div>
+          </div>
+
+          {/* Language selector chips */}
+          <div className="flex flex-wrap gap-1">
+            {(Object.keys(SUPPORTED_LANGUAGES) as SupportedLanguage[]).map((code) => {
+              const meta = SUPPORTED_LANGUAGES[code];
+              const isSelected = selectedLanguage === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setSelectedLanguage(code)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                    isSelected
+                      ? 'bg-brand-600 text-white border-brand-500 shadow-md shadow-brand-600/30 font-bold'
+                      : 'bg-gray-800 text-gray-400 hover:text-white border-white/5'
+                  }`}
+                >
+                  {meta.nativeName}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Localized Message Body */}
+        <div className="bg-gray-950/70 border border-white/5 rounded-xl p-4 text-xs font-sans text-gray-200 whitespace-pre-line leading-relaxed shadow-inner">
+          {localizedUpdate.message}
+        </div>
+
+        {/* Action button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+            <Phone className="w-3.5 h-3.5 text-gray-500" />
+            Registered Contact: {student.parentPhone || '+91 98765 43210'}
+          </span>
+          <button
+            type="button"
+            onClick={handleParentWhatsApp}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
+          >
+            <MessageCircle className="w-4 h-4" />
+            Receive This Notice on WhatsApp
+          </button>
         </div>
       </div>
 
