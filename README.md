@@ -210,6 +210,13 @@ Contributions are welcome! Please:
 
 ---
 
+## Recent Changes
+
+- Added new profile update approval workflow enhancements.
+- Updated risk detection engine thresholds UI.
+
+---
+
 ## License
 
 Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
