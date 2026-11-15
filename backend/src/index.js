@@ -12,8 +12,9 @@ connectMongo();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://class-pulse-beta-puce.vercel.app'
-].filter(Boolean);
+  'https://class-pulse-beta-puce.vercel.app',
+  'https://class-pulse-1ylvyxcph-sanasaniya464-5331s-projects.vercel.app'
+];
 
 app.use(cors({
   origin: allowedOrigins,
