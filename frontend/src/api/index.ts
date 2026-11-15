@@ -1,6 +1,7 @@
 import type { Student, RiskThresholds, Intervention, FacultyUser } from '../types';
 
-const BASE = '/api';
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+const BASE = `${API_ORIGIN}/api`;
 const TOKEN_KEY = 'classpulse_token';
 
 function getToken() {
